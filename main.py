@@ -2,9 +2,8 @@ import sys
 import os
 import shutil
 from PyQt5.QtWidgets import *
-import logging
-
-from modules import *
+from PyQt5.QtCore import Qt
+from modules import Modules
 
 
 class Main(QMainWindow):
@@ -13,130 +12,73 @@ class Main(QMainWindow):
         self.setupUi(self)
 
     def setupUi(self, MainWindow):
-        self.setWindowTitle("CopyPaster")
+        self.setWindowTitle("Шифровальщик")
         self.setMinimumWidth(600)
         self.setMinimumHeight(400)
 
-        self.save_data = UserData.readSaveData()
         self.stackedWidget = QStackedWidget()
         self.main_widget = QWidget()
         self.main_layout = QGridLayout()
-        self.header = QLabel("Скопировать файлы из папки 1 в папку 2.")
-        self.from_header = QLabel("Копировать из: ")
-        self.to_header = QLabel("Копировать в: ")
-        self.from_line = QLineEdit()
-        self.from_line.setPlaceholderText("Копировать из...")
-        self.from_line.setText(self.save_data["from_folder"])
-        self.from_choose_btn = QPushButton("Изменить")
-        self.from_box_text = QLabel("Выбрать папку для перемещения")
-        self.from_choose_list = None
-        try:
-            self.dirlist = []
-            for filename in os.listdir(self.save_data["from_folder"]):
-                full_path = os.path.join(self.save_data["from_folder"], filename)
-                if os.path.isdir(full_path):
-                    self.dirlist.append((filename, os.path.getmtime(full_path)))
-            self.dirlist.sort(key=lambda tpl: tpl[1], reverse=True)
-            self.from_choose_list = QComboBox()
-            self.from_choose_list.addItems([tpl[0] for tpl in self.dirlist])
-        except Exception as e:
-            QMessageBox.critical(self, "Ошибка", "Невозможно прочитать директорию 1.", QMessageBox.Ok)
-        self.to_line = QLineEdit()
-        self.to_line.setPlaceholderText("Копировать в...")
-        self.to_line.setText(self.save_data["to_folder"])
-        self.to_choose_btn = QPushButton("Изменить")
-        self.copy_btn = QPushButton("Скопировать")
-        self.main_layout.addWidget(self.header, 0, 0, alignment=Qt.AlignCenter)
-        self.main_layout.addWidget(self.from_header, 1, 0)
-        self.main_layout.addWidget(self.from_line, 1, 1)
-        self.main_layout.addWidget(self.from_choose_btn, 1, 2)
-        if self.from_choose_list:
-            self.main_layout.addWidget(self.from_choose_list, 2, 1, 1, 2)
-        self.main_layout.addWidget(self.from_box_text, 2, 0, 1, 1)
-        self.main_layout.addWidget(self.to_header, 3, 0)
-        self.main_layout.addWidget(self.to_line, 3, 1)
-        self.main_layout.addWidget(self.to_choose_btn, 3, 2)
-        self.main_layout.addWidget(self.copy_btn, 4, 0, 1, 3)
+        self.header = QLabel("Введите текст:")
+        self.combo = QComboBox()
+        self.list_of_items = ["Метод перестановки", "Метод Цезаря", "Ассиметричный метод"]
+        self.combo.addItems(self.list_of_items)
+        self.combo.setCurrentIndex(0)
+        self.header2 = QLabel("Выберите способ шифрования:")
+        self.text_edit = QPlainTextEdit(self)
+        self.from_file_btn = QPushButton("Прочитать из файла .txt")
+        self.encode_btn = QPushButton("Зашифровать")
+        self.text_edit_result = QPlainTextEdit(self)
+        self.text_edit_result.setReadOnly(True)
+        self.text_edit_result.setPlaceholderText("Здесь будет результат шифрования...")
+        self.to_file_btn = QPushButton("Записать в файл .txt")
+        self.main_layout.addWidget(self.header, 0, 0, 1, 2, alignment=Qt.AlignCenter)
+        self.main_layout.addWidget(self.text_edit, 1, 0, 1, 1)
+        self.main_layout.addWidget(self.from_file_btn, 1, 1, 1, 1)
+        self.main_layout.addWidget(self.header2, 2, 0, 1, 2, alignment=Qt.AlignCenter)
+        self.main_layout.addWidget(self.combo, 3, 0, 1, 2)
+        self.main_layout.addWidget(self.encode_btn, 4, 0, 1, 2)
+        self.main_layout.addWidget(self.text_edit_result, 5, 0, 1, 1)
+        self.main_layout.addWidget(self.to_file_btn, 5, 1, 1, 1)
 
-        self.from_choose_btn.clicked.connect(self.__fromButtonClicked)
-        self.to_choose_btn.clicked.connect(self.__toButtonClicked)
-        self.copy_btn.clicked.connect(self.__copyProcess)
-
-
-        self.logTextBox = QTextEditLogger(self)
-        self.logTextBox.setFormatter(
-            logging.Formatter(
-                '%(asctime)s %(levelname)s %(module)s %(funcName)s %(message)s'))
-        logging.getLogger().addHandler(self.logTextBox)
-        logging.getLogger().setLevel(logging.INFO)
-
-        self.main_layout.addWidget(self.logTextBox.widget, 5, 0, 1, 3)
+        self.encode_btn.clicked.connect(self.__encodeButtonClicked)
+        self.from_file_btn.clicked.connect(self.__fromfileButtonClicked)
+        self.to_file_btn.clicked.connect(self.__tofileButtonClicked)
 
         self.main_widget.setLayout(self.main_layout)
         self.stackedWidget.addWidget(self.main_widget)
         self.stackedWidget.setCurrentIndex(0)
         self.setCentralWidget(self.stackedWidget)
 
-    def __copytree(self, src, dst, symlinks=False, ignore=None):
-        for item in os.listdir(src):
-            s = os.path.join(src, item)
-            d = os.path.join(dst, item)
-            if os.path.isdir(s):
-                shutil.copytree(s, d, symlinks, ignore)
-            else:
-                shutil.copy2(s, d)
-                logging.info(f"Copied file {s}")
+    def __encodeButtonClicked(self):
+        self.type = self.combo.currentIndex()
+        match self.type:
+            case 0:
+                self.crypted = Modules.shuffleCrypto(self.text_edit.toPlainText(),1)
+            case 1:
+                self.crypted = Modules.caesarCrypto(self.text_edit.toPlainText(),1)
+            case 2:
+                self.crypted = self.text_edit.toPlainText()
+                QMessageBox.information(self, "Информация", "Пока недоступно.", QMessageBox.Ok)
+        self.text_edit_result.setPlainText(self.crypted)
 
-    def __cleartree(self, folder):
-        for filename in os.listdir(folder):
-            file_path = os.path.join(folder, filename)
-            if os.path.isfile(file_path) or os.path.islink(file_path):
-                os.unlink(file_path)
-                logging.info(f"Deleted file {file_path}")
-            elif os.path.isdir(file_path):
-                shutil.rmtree(file_path)
-                logging.info(f"Deleted folder {file_path}")
+    def __fromfileButtonClicked(self):
+        filename = QFileDialog.getOpenFileName(self,"Выбор файла",'.')
+        if not bool(filename[0]):
+            pass
+        elif not filename[0].endswith(".txt"):
+            QMessageBox.critical(self, "Ошибка", "Поддерживаются только файлы формата .txt.", QMessageBox.Ok)
+        else:
+            text = Modules.readTextFromTxt(filename[0])
+            self.text_edit.setPlainText(text)
 
-    def __fromButtonClicked(self):
-        self.from_destination = QFileDialog.getExistingDirectory()
-        if self.from_destination:
-            self.from_line.setText(self.from_destination)
-            UserData.changeSaveData(from_path=self.from_destination)
-        try:
-            self.dirlist = []
-            for filename in os.listdir(self.from_destination):
-                full_path = os.path.join(self.from_destination, filename)
-                if os.path.isdir(full_path):
-                    self.dirlist.append((filename, os.path.getmtime(full_path)))
-            self.dirlist.sort(key=lambda tpl: tpl[1], reverse=True)
-            self.from_choose_list = QComboBox()
-            self.from_choose_list.addItems([tpl[0] for tpl in self.dirlist])
-            self.main_layout.addWidget(self.from_choose_list, 2, 1, 1, 2)
-        except Exception as e:
-            QMessageBox.critical(self, "Ошибка", "Невозможно прочитать директорию 1.", QMessageBox.Ok)
-
-    def __toButtonClicked(self):
-        self.to_destination = QFileDialog.getExistingDirectory()
-        if self.to_destination:
-            self.to_line.setText(self.to_destination)
-            UserData.changeSaveData(to_path=self.to_destination)
-
-    def __copyProcess(self):
-        self.from_destination = self.from_line.text()
-        self.to_destination = self.to_line.text()
-        self.from_destination = os.path.join(self.from_destination, self.from_choose_list.currentText())
-        UserData.changeSaveData(from_path=self.from_line.text(), to_path=self.to_destination)
-        try:
-            self.__cleartree(self.to_destination)
-            self.__copytree(self.from_destination, self.to_destination)
-        except Exception as e:
-            QMessageBox.critical(self, "Ошибка", str(e), QMessageBox.Ok)
-            logging.error(f"Error: {str(e)}")
-
+    def __tofileButtonClicked(self):
+        QMessageBox.information(self, "Сохранение файла", "Выберите директорию для сохранения результата шифрования. В ней будет создан файл result.txt с результатом шифрования. Внимание: если файл с таким именем уже существует, его содержимое будет стёрто.", QMessageBox.Ok)
+        directory = QFileDialog.getExistingDirectory(self,"Сохранение файла",'.')
+        Modules.writeTxtInDir(directory,self.text_edit_result.toPlainText())
+        
 
 def main():
-    if not UserData.checkIfSaveExists():
-        UserData.generateEmptySave()
     app = QApplication(sys.argv)
     win = Main()
     win.show()
