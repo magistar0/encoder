@@ -32,31 +32,63 @@ class Main(QMainWindow):
         self.text_edit_result.setReadOnly(True)
         self.text_edit_result.setPlaceholderText("Здесь будет результат шифрования...")
         self.to_file_btn = QPushButton("Записать в файл .txt")
-        self.main_layout.addWidget(self.header, 0, 0, 1, 2, alignment=Qt.AlignCenter)
-        self.main_layout.addWidget(self.text_edit, 1, 0, 1, 1)
-        self.main_layout.addWidget(self.from_file_btn, 1, 1, 1, 1)
-        self.main_layout.addWidget(self.header2, 2, 0, 1, 2, alignment=Qt.AlignCenter)
-        self.main_layout.addWidget(self.combo, 3, 0, 1, 2)
-        self.main_layout.addWidget(self.encode_btn, 4, 0, 1, 2)
-        self.main_layout.addWidget(self.text_edit_result, 5, 0, 1, 1)
-        self.main_layout.addWidget(self.to_file_btn, 5, 1, 1, 1)
+
+        self.current_mode = 0 # 0 - encode, 1 - decode
+        self.btn_header = QLabel("Выберите режим работы программы:")
+        self.encode_mode_btn = QPushButton("Шифрование")
+        self.decode_mode_btn = QPushButton("Дешифрование")
+        self.encode_mode_btn.setEnabled(False)
+
+        self.main_layout.addWidget(self.btn_header, 0, 0, 1, 2, alignment=Qt.AlignCenter)
+        self.main_layout.addWidget(self.encode_mode_btn, 1, 0, 1, 2)
+        self.main_layout.addWidget(self.decode_mode_btn, 2, 0, 1, 2)
+        self.main_layout.addWidget(self.header, 3, 0, 1, 2, alignment=Qt.AlignCenter)
+        self.main_layout.addWidget(self.text_edit, 4, 0, 1, 1)
+        self.main_layout.addWidget(self.from_file_btn, 4, 1, 1, 1)
+        self.main_layout.addWidget(self.header2, 5, 0, 1, 2, alignment=Qt.AlignCenter)
+        self.main_layout.addWidget(self.combo, 6, 0, 1, 2)
+        self.main_layout.addWidget(self.encode_btn, 7, 0, 1, 2)
+        self.main_layout.addWidget(self.text_edit_result, 8, 0, 1, 1)
+        self.main_layout.addWidget(self.to_file_btn, 8, 1, 1, 1)
 
         self.encode_btn.clicked.connect(self.__encodeButtonClicked)
         self.from_file_btn.clicked.connect(self.__fromfileButtonClicked)
         self.to_file_btn.clicked.connect(self.__tofileButtonClicked)
+        self.encode_mode_btn.clicked.connect(self.__encodeModeClicked)
+        self.decode_mode_btn.clicked.connect(self.__decodeModeClicked)
 
         self.main_widget.setLayout(self.main_layout)
         self.stackedWidget.addWidget(self.main_widget)
         self.stackedWidget.setCurrentIndex(0)
         self.setCentralWidget(self.stackedWidget)
 
+    def __encodeModeClicked(self):
+        self.encode_mode_btn.setEnabled(False)
+        self.decode_mode_btn.setEnabled(True)
+        self.current_mode = 0
+        self.encode_btn.setText("Зашифровать")
+        self.header2.setText("Выберите способ шифрования:")
+
+    def __decodeModeClicked(self):
+        self.decode_mode_btn.setEnabled(False)
+        self.encode_mode_btn.setEnabled(True)
+        self.current_mode = 1
+        self.encode_btn.setText("Расшифровать")
+        self.header2.setText("Выберите способ дешифрования:")
+
     def __encodeButtonClicked(self):
         self.type = self.combo.currentIndex()
         match self.type:
             case 0:
-                self.crypted = Modules.shuffleCrypto(self.text_edit.toPlainText(),1)
+                if (not self.current_mode):
+                    self.crypted = Modules.shuffleCrypto(self.text_edit.toPlainText(),1)
+                else:
+                    self.crypted = Modules.shuffleDecrypt(self.text_edit.toPlainText(),1)
             case 1:
-                self.crypted = Modules.caesarCrypto(self.text_edit.toPlainText(),1)
+                if (not self.current_mode):
+                    self.crypted = Modules.caesarCrypto(self.text_edit.toPlainText(),1)
+                else:
+                    self.crypted = Modules.caesarDecrypt(self.text_edit.toPlainText(),1)
             case 2:
                 self.crypted = self.text_edit.toPlainText()
                 QMessageBox.information(self, "Информация", "Пока недоступно.", QMessageBox.Ok)
